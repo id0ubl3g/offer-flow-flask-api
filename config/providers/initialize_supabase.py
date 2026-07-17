@@ -5,9 +5,13 @@ import os
 load_dotenv()
 
 def initialize_supabase() -> Client:
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_KEY")
-    
-    client = create_client(supabase_url, supabase_key)
+    return create_client(
+        os.getenv("SUPABASE_URL"),
+        os.getenv("SUPABASE_ANON_KEY")
+    )
 
-    return client
+def initialize_supabase_admin() -> Client:
+    return create_client(
+        os.getenv("SUPABASE_URL"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    )

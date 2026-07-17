@@ -1,17 +1,28 @@
-from config.providers.initialize_supabase import initialize_supabase
-from src.utils.system_utils import validate_user_data, is_valid_email
+from config.providers.initialize_supabase import initialize_supabase, initialize_supabase_admin
+from config.providers.initialize_redis import initialize_redis
+from config.providers.initialize_limiter import initialize_limiter
+
 from src.middlewares.auth import require_auth
+
+from src.utils.system_utils import validate_user_data, is_valid_email, user_or_ip
+from src.utils.send_email_verification import SendEmailVerification
 
 from flask import Flask, request, jsonify, Response, g
 from datetime import datetime, timezone, timedelta
 # from flask_cors import CORS
+import secrets
 
 class Server:
     def __init__(self) -> None:
         self.app: Flask = Flask(__name__)
 
-        self.supabase = initialize_supabase()
+        self.PASSWORD_RESET_TTL = 10 * 60
 
+        self.supabase = initialize_supabase()
+        self.supabase_admin = initialize_supabase_admin()
+        self.redis = initialize_redis()
+        self.limiter = initialize_limiter(self.app, user_or_ip)
+        
         # CORS(
         #     self.app,
         #     origins="*",
@@ -24,8 +35,52 @@ class Server:
     def create_error_response(self, message: str, code: int) -> Response:
         return jsonify({'error': message}), code
 
+    def generate_code(self) -> str:
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return ''.join(secrets.choice(alphabet) for _ in range(6))
+
+    def check_and_apply_block(self, current_user: str, increment: bool = True) -> Response | None:
+        block_key = f"blocked:{current_user}"
+        count_key = f"count429:{current_user}"
+        
+        ttl = self.redis.ttl(block_key)
+        if ttl > 0:
+            minutes = max(1, math.ceil(ttl / 60))
+            return self.create_error_response(f"You have been temporarily blocked due to repeated rate limit violations. Please try again in {minutes} minute(s).", 403)
+        
+        count =  None
+        
+        if increment:
+            pipe = self.redis.pipeline()
+            pipe.incr(count_key)
+            pipe.expire(count_key, 300)
+            
+            count, _ = pipe.execute()
+
+        if increment and count == 3:
+            return self.create_error_response("You are approaching the rate limit. One more failed attempt will block you for 30 minutes. Please try again later.", 429)
+
+        if increment and count >= 4:
+            self.redis.set(block_key, 1, ex=1800)
+            self.redis.delete(count_key)
+            
+            return self.create_error_response("You have been temporarily blocked due to repeated rate limit violations.", 403)
+        
+        return None
+
     def _register_routes(self) -> None:
+        @self.app.errorhandler(429)
+        def ratelimit_error(e) -> Response:
+            current_user = user_or_ip()
+            response_check_and_apply_block = self.check_and_apply_block(current_user)
+
+            if response_check_and_apply_block:
+                return response_check_and_apply_block
+
+            return self.create_error_response("Too many requests. Please try again later.", 429)
+
         @self.app.route("/auth/register", methods=["POST"])
+        @self.limiter.limit("5 per minute")
         def auth_register() -> Response:
             try:
                 data = request.get_json()
@@ -48,20 +103,31 @@ class Server:
                 if not is_valid_email(email):
                     return self.create_error_response('Invalid email format', 400)
 
+                profile = (
+                    self.supabase
+                    .table("profiles")
+                    .select("id")
+                    .eq("email", email)
+                    .limit(1)
+                    .execute()
+                )
+                
+                if profile.data:
+                    return self.create_error_response("Email is already registered", 409)
+
                 response = self.supabase.auth.sign_up({
                     "email": email,
                     "password": password
                 })
 
                 if response.user is None:
-                    return self.create_error_response("Unable to create user.", 400)
+                    return self.create_error_response("Unable to create user", 400)
 
                 profile = self.supabase.table("profiles").insert({
                     "id": response.user.id,
-                    "name": name
+                    "name": name,
+                    "email": email
                 }).execute()
-
-                print(profile)
 
                 return jsonify({
                     "message": "User created successfully.",
@@ -76,6 +142,7 @@ class Server:
                 return self.create_error_response('An error occurred while processing the request', 500)
 
         @self.app.route("/auth/login", methods=["POST"])
+        @self.limiter.limit("5 per minute")
         def auth_login() -> Response:
             try:
                 data = request.get_json()
@@ -101,12 +168,6 @@ class Server:
                     "password": password
                 })
 
-                if response.user is None or response.session is None:
-                    return self.create_error_response(
-                        "Invalid email or password.",
-                        401
-                    )
-
                 profile = (
                     self.supabase
                     .table("profiles")
@@ -124,10 +185,14 @@ class Server:
                     "user": profile.data
                 }), 200
 
-            except Exception:
+            except Exception as e:
+                if "Invalid login credentials" in str(e):
+                    return self.create_error_response("Invalid email or password", 401)
+
                 return self.create_error_response('An error occurred while processing the request', 500)
 
         @self.app.route("/auth/refresh", methods=["POST"])
+        @self.limiter.limit("5 per minute")
         def auth_refresh() -> Response:
             try:
                 data = request.get_json()
@@ -140,7 +205,7 @@ class Server:
                 response = self.supabase.auth.refresh_session(refresh_token)
 
                 if response.session is None:
-                    return self.create_error_response("Invalid refresh token.", 401)
+                    return self.create_error_response("Invalid refresh token", 401)
 
                 return jsonify({
                     "message": "Session refreshed successfully.",
@@ -154,6 +219,7 @@ class Server:
 
         @self.app.route("/profile", methods=["GET"])
         @require_auth(self.supabase)
+        @self.limiter.limit("20 per minute")
         def profile() -> Response:
             try:
                 return jsonify({"user": g.user}), 200
@@ -161,7 +227,127 @@ class Server:
             except Exception:
                 return self.create_error_response('An error occurred while processing the request', 500)
 
+        @self.app.route('/auth/forgot-password', methods=['POST'])
+        @self.limiter.limit("5 per minute")
+        def auth_forgot_password() -> Response:
+            try:
+                data = request.get_json()
+
+                email = data.get("email")
+
+                if not email:
+                    return self.create_error_response(f'Missing required fields: {", ".join(["email"])}', 400)
+
+                if not is_valid_email(email):
+                    return self.create_error_response('Invalid email format', 400)
+
+                profile = (
+                    self.supabase
+                    .table("profiles")
+                    .select("id")
+                    .eq("email", email)
+                    .maybe_single()
+                    .execute()
+                )
+
+                if profile.data is None:
+                    return self.create_error_response('No account found with this email', 400)
+
+                user_id = profile.data["id"]
+
+                key = f"password_reset:{user_id}"
+                
+                # if self.redis.exists(key):
+                #     return jsonify({"message": "A recovery code has already been sent."}), 200
+
+                code = self.generate_code()
+
+                self.redis.setex(key, self.PASSWORD_RESET_TTL, code)
+
+                SendEmailVerification().send_verification_email(email, code, 'reset_password')
+
+                return jsonify({"message": "Recovery code sent successfully"}), 200
+
+            except Exception:
+                return self.create_error_response('An error occurred while processing the request', 500)
+
+        @self.app.route("/auth/reset-password", methods=["POST"])
+        @self.limiter.limit("5 per minute")
+        def auth_reset_password() -> Response:
+            try:
+                data = request.get_json()
+
+                email = data.get("email")
+                password = data.get("password")
+                code = data.get("code")
+
+                if not email or not password or not code:
+                    return self.create_error_response("Missing required fields: email, password, code", 400)
+
+                code = code.strip().upper()
+
+                if not is_valid_email(email):
+                    return self.create_error_response('Invalid email format', 400)
+
+                validation_error = validate_user_data({
+                    "password": password,
+                    "code": code
+                })
+
+                if validation_error:
+                    return self.create_error_response(validation_error, 400)
+
+                profile = (
+                    self.supabase
+                    .table("profiles")
+                    .select("id")
+                    .eq("email", email)
+                    .maybe_single()
+                    .execute()
+                )
+
+                if profile.data is None:
+                    return self.create_error_response('No account found with this email', 400)
+
+                user_id = profile.data["id"]
+
+                key = f"password_reset:{user_id}"
+
+                saved_code = self.redis.get(key)
+
+                if saved_code is None or saved_code != code:
+                    return self.create_error_response("Invalid or expired recovery code", 400)
+
+                self.supabase_admin.auth.admin.update_user_by_id(
+                    user_id, {"password": password}
+                )
+
+                self.redis.delete(key)
+
+                return jsonify({"message": "Password updated successfully"}), 200
+
+            except Exception:
+                return self.create_error_response('An error occurred while processing the request', 500)
+
+        @self.app.route("/auth/delete-account", methods=["DELETE"])
+        @require_auth(self.supabase)
+        @self.limiter.limit("5 per minute")
+        def auth_delete_account() -> Response:
+            try:
+                user_id = g.user["id"]
+
+                self.supabase_admin \
+                    .table("profiles") \
+                    .delete() \
+                    .eq("id", user_id) \
+                    .execute()
+
+                self.supabase_admin.auth.admin.delete_user(user_id)
+
+                return jsonify({"message": "Account deleted successfully."}), 200
+
+            except Exception:
+                return self.create_error_response("An error occurred while processing the request", 500)
+
     def run_production(self, host: str = '0.0.0.0', port: int = 5000) -> None:
         self.app.run(debug=False, host=host, port=port, use_reloader=False)
-
-

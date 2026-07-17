@@ -1,3 +1,4 @@
+from supabase_auth.errors import AuthApiError
 from flask import request, jsonify, g
 from functools import wraps
 from supabase import Client
