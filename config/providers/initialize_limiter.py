@@ -4,11 +4,10 @@ import os
 
 load_dotenv()
 
-def initialize_limiter(app, key_func) -> Limiter:
+def initialize_limiter(key_func) -> Limiter:
     redis_url = os.getenv("REDIS_URL")
 
     limiter = Limiter(
-        app=app,
         key_func=key_func,
         default_limits=["100 per minute"],
         storage_uri=redis_url
