@@ -1,4 +1,5 @@
 from src.extensions import get_supabase_admin, get_redis, get_evolution
+from src.services.evolution_client import EvolutionError
 
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -144,7 +145,12 @@ def disconnect(instance: dict) -> dict:
     return update_instance(instance["id"], {"status": "close"})
 
 def delete(instance: dict) -> None:
-    get_evolution().delete_instance(instance["instance_name"])
+    try:
+        get_evolution().delete_instance(instance["instance_name"])
+
+    except EvolutionError as e:
+        if e.status_code != 404:
+            raise
 
     get_supabase_admin().table("whatsapp_instances").delete().eq("id", instance["id"]).execute()
     get_redis().delete(f"whatsapp_qrcode:{instance['instance_name']}")

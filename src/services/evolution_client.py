@@ -67,7 +67,14 @@ class EvolutionClient:
         return self._request("GET", f"/instance/connectionState/{instance_name}")["instance"]["state"]
 
     def fetch_instance(self, instance_name: str) -> dict | None:
-        instances = self._request("GET", "/instance/fetchInstances", params={"instanceName": instance_name})
+        try:
+            instances = self._request("GET", "/instance/fetchInstances", params={"instanceName": instance_name})
+
+        except EvolutionError as e:
+            if e.status_code == 404:
+                return None
+
+            raise
 
         return instances[0] if instances else None
 

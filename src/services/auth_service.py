@@ -1,6 +1,7 @@
 from config.providers.initialize_supabase import initialize_supabase
 
 from src.extensions import get_supabase_admin, get_redis
+from src.services import whatsapp_service
 
 import secrets
 
@@ -108,7 +109,26 @@ def reset_password(user_id: str, password: str) -> None:
 
     get_redis().delete(f"password_reset:{user_id}")
 
+def _delete_user_images(user_id: str) -> None:
+    bucket = get_supabase_admin().storage.from_("offer-images")
+
+    paths = [
+        f"{user_id}/{folder['name']}/{file['name']}"
+        for folder in bucket.list(user_id)
+        for file in bucket.list(f"{user_id}/{folder['name']}")
+    ]
+
+    if paths:
+        bucket.remove(paths)
+
 def delete_account(user_id: str) -> None:
+    instance = whatsapp_service.get_instance(user_id)
+
+    if instance:
+        whatsapp_service.delete(instance)
+
+    _delete_user_images(user_id)
+
     get_supabase_admin() \
         .table("profiles") \
         .delete() \
