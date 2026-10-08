@@ -5,6 +5,8 @@ from src.api.routes.profile import profile_bp
 from src.api.routes.offers import offers_bp
 from src.api.routes.whatsapp import whatsapp_bp
 from src.api.routes.webhooks import webhooks_bp
+from src.api.routes.schedules import schedules_bp
+from src.api.routes.dispatches import dispatches_bp
 
 from flask import Flask
 
@@ -20,5 +22,7 @@ def create_app() -> Flask:
     app.register_blueprint(offers_bp)
     app.register_blueprint(whatsapp_bp)
     app.register_blueprint(webhooks_bp)
+    app.register_blueprint(schedules_bp)
+    app.register_blueprint(dispatches_bp)
 
     return app

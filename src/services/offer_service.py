@@ -1,4 +1,6 @@
-from src.extensions import get_user_supabase
+from src.extensions import get_user_supabase, get_supabase_admin
+
+from datetime import datetime, timezone
 
 import uuid
 import re
@@ -28,7 +30,7 @@ def get_image_url(image_path: str | None) -> str | None:
     if not image_path:
         return None
 
-    return get_user_supabase().storage.from_(BUCKET).get_public_url(image_path).rstrip("?")
+    return get_supabase_admin().storage.from_(BUCKET).get_public_url(image_path).rstrip("?")
 
 def serialize_offer(offer: dict) -> dict:
     return {
@@ -134,3 +136,27 @@ def remove_offer_image(offer: dict) -> dict | None:
         get_user_supabase().storage.from_(BUCKET).remove([offer["image_path"]])
 
     return updated
+
+def queue_offer(offer_id: str) -> dict | None:
+    return update_offer(offer_id, {
+        "status": "queued",
+        "queued_at": datetime.now(timezone.utc).isoformat()
+    })
+
+def unqueue_offer(offer_id: str) -> dict | None:
+    return update_offer(offer_id, {"status": "draft", "queued_at": None})
+
+def list_queue() -> list[dict]:
+    response = (
+        get_user_supabase()
+        .table("offers")
+        .select("*")
+        .eq("status", "queued")
+        .order("queued_at")
+        .execute()
+    )
+
+    return response.data
+
+def update_offer_admin(offer_id: str, data: dict) -> None:
+    get_supabase_admin().table("offers").update(data).eq("id", offer_id).execute()

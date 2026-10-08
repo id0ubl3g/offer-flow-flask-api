@@ -62,6 +62,16 @@ def create_offer() -> Response:
     except Exception:
         return create_error_response("An error occurred while processing the request", 500)
 
+@offers_bp.route("/queue", methods=["GET"])
+@require_auth
+@limiter.limit("60 per minute")
+def list_queue() -> Response:
+    try:
+        return jsonify({"queue": [offer_service.serialize_offer(offer) for offer in offer_service.list_queue()]}), 200
+
+    except Exception:
+        return create_error_response("An error occurred while processing the request", 500)
+
 @offers_bp.route("/<uuid:offer_id>", methods=["GET"])
 @require_auth
 @limiter.limit("60 per minute")
@@ -247,6 +257,52 @@ def test_send_offer(offer_id: UUID) -> Response:
 
     except EvolutionError as e:
         return create_error_response(f"WhatsApp service error: {e.message}", 504 if e.status_code == 504 else 502)
+
+    except Exception:
+        return create_error_response("An error occurred while processing the request", 500)
+
+@offers_bp.route("/<uuid:offer_id>/queue", methods=["POST"])
+@require_auth
+@limiter.limit("30 per minute")
+def queue_offer(offer_id: UUID) -> Response:
+    try:
+        offer = offer_service.get_offer(str(offer_id))
+
+        if offer is None:
+            return create_error_response("Offer not found", 404)
+
+        if offer["status"] == "queued":
+            return create_error_response("Offer is already queued", 409)
+
+        offer = offer_service.queue_offer(str(offer_id))
+
+        return jsonify({
+            "message": "Offer added to the queue.",
+            "offer": offer_service.serialize_offer(offer)
+        }), 200
+
+    except Exception:
+        return create_error_response("An error occurred while processing the request", 500)
+
+@offers_bp.route("/<uuid:offer_id>/queue", methods=["DELETE"])
+@require_auth
+@limiter.limit("30 per minute")
+def unqueue_offer(offer_id: UUID) -> Response:
+    try:
+        offer = offer_service.get_offer(str(offer_id))
+
+        if offer is None:
+            return create_error_response("Offer not found", 404)
+
+        if offer["status"] != "queued":
+            return create_error_response("Offer is not queued", 409)
+
+        offer = offer_service.unqueue_offer(str(offer_id))
+
+        return jsonify({
+            "message": "Offer removed from the queue.",
+            "offer": offer_service.serialize_offer(offer)
+        }), 200
 
     except Exception:
         return create_error_response("An error occurred while processing the request", 500)
