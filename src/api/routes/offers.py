@@ -4,7 +4,7 @@ from src.schemas.offer_schema import OfferCreate, OfferUpdate, format_validation
 from src.schemas.whatsapp_schema import TestSend
 from src.services import offer_service, whatsapp_service
 from src.services.evolution_client import EvolutionError
-from src.utils.return_responses import create_error_response
+from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
 from pydantic import ValidationError
@@ -40,7 +40,7 @@ def list_offers() -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("", methods=["POST"])
 @require_auth
@@ -60,7 +60,7 @@ def create_offer() -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/queue", methods=["GET"])
 @require_auth
@@ -70,7 +70,7 @@ def list_queue() -> Response:
         return jsonify({"queue": [offer_service.serialize_offer(offer) for offer in offer_service.list_queue()]}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>", methods=["GET"])
 @require_auth
@@ -85,7 +85,7 @@ def get_offer(offer_id: UUID) -> Response:
         return jsonify({"offer": offer_service.serialize_offer(offer)}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>", methods=["PATCH"])
 @require_auth
@@ -123,7 +123,7 @@ def update_offer(offer_id: UUID) -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>", methods=["DELETE"])
 @require_auth
@@ -140,7 +140,7 @@ def delete_offer(offer_id: UUID) -> Response:
         return jsonify({"message": "Offer deleted successfully."}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/preview", methods=["GET"])
 @require_auth
@@ -158,7 +158,7 @@ def preview_offer(offer_id: UUID) -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/image", methods=["PUT"])
 @require_auth
@@ -196,7 +196,7 @@ def upload_offer_image(offer_id: UUID) -> Response:
         return create_error_response("Image must be at most 5 MB", 413)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/image", methods=["DELETE"])
 @require_auth
@@ -216,7 +216,7 @@ def delete_offer_image(offer_id: UUID) -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/test-send", methods=["POST"])
 @require_auth
@@ -259,7 +259,7 @@ def test_send_offer(offer_id: UUID) -> Response:
         return create_error_response(f"WhatsApp service error: {e.message}", 504 if e.status_code == 504 else 502)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/queue", methods=["POST"])
 @require_auth
@@ -282,7 +282,7 @@ def queue_offer(offer_id: UUID) -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @offers_bp.route("/<uuid:offer_id>/queue", methods=["DELETE"])
 @require_auth
@@ -305,4 +305,4 @@ def unqueue_offer(offer_id: UUID) -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()

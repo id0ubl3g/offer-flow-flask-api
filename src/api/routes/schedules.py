@@ -3,7 +3,7 @@ from src.middlewares.auth import require_auth
 from src.schemas.offer_schema import format_validation_error
 from src.schemas.schedule_schema import ScheduleCreate, ScheduleUpdate, DispatchSettingsUpdate
 from src.services import schedule_service
-from src.utils.return_responses import create_error_response
+from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
 from pydantic import ValidationError
@@ -19,7 +19,7 @@ def list_schedules() -> Response:
         return jsonify({"schedules": [schedule_service.serialize_schedule(schedule) for schedule in schedule_service.list_schedules()]}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @schedules_bp.route("/schedules", methods=["POST"])
 @require_auth
@@ -42,7 +42,7 @@ def create_schedule() -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @schedules_bp.route("/schedules/<uuid:schedule_id>", methods=["PATCH"])
 @require_auth
@@ -75,7 +75,7 @@ def update_schedule(schedule_id: UUID) -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @schedules_bp.route("/schedules/<uuid:schedule_id>", methods=["DELETE"])
 @require_auth
@@ -90,7 +90,7 @@ def delete_schedule(schedule_id: UUID) -> Response:
         return jsonify({"message": "Schedule deleted successfully."}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @schedules_bp.route("/dispatch-settings", methods=["GET"])
 @require_auth
@@ -100,7 +100,7 @@ def get_dispatch_settings() -> Response:
         return jsonify({"settings": schedule_service.get_settings(g.user["id"])}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @schedules_bp.route("/dispatch-settings", methods=["PATCH"])
 @require_auth
@@ -127,4 +127,4 @@ def update_dispatch_settings() -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()

@@ -1,6 +1,6 @@
 from src.extensions import limiter
 from src.services import whatsapp_service
-from src.utils.return_responses import create_error_response
+from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response
 import hmac
@@ -36,4 +36,4 @@ def evolution_webhook() -> Response:
         return jsonify({"received": True}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()

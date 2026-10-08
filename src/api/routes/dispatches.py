@@ -2,7 +2,7 @@ from src.extensions import limiter
 from src.middlewares.auth import require_auth
 from src.services import dispatch_service, offer_service, whatsapp_service
 from src.services.evolution_client import EvolutionError
-from src.utils.return_responses import create_error_response
+from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
 from uuid import UUID
@@ -35,7 +35,7 @@ def list_runs() -> Response:
         return jsonify({"runs": runs, "page": pagination[0], "per_page": pagination[1], "total": total}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @dispatches_bp.route("/dispatch-runs/<uuid:run_id>", methods=["GET"])
 @require_auth
@@ -50,7 +50,7 @@ def get_run(run_id: UUID) -> Response:
         return jsonify({"run": run}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @dispatches_bp.route("/dispatches", methods=["GET"])
 @require_auth
@@ -71,7 +71,7 @@ def list_dispatches() -> Response:
         return jsonify({"dispatches": dispatches, "page": pagination[0], "per_page": pagination[1], "total": total}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @dispatches_bp.route("/dispatches/<uuid:dispatch_id>/retry", methods=["POST"])
 @require_auth
@@ -111,4 +111,4 @@ def retry_dispatch(dispatch_id: UUID) -> Response:
         return create_error_response(f"WhatsApp service error: {e.message}", 504 if e.status_code == 504 else 502)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()

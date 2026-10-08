@@ -4,7 +4,7 @@ from src.schemas.offer_schema import format_validation_error
 from src.schemas.whatsapp_schema import GroupUpdate
 from src.services import whatsapp_service
 from src.services.evolution_client import EvolutionError
-from src.utils.return_responses import create_error_response
+from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
 from pydantic import ValidationError
@@ -40,7 +40,7 @@ def get_whatsapp() -> Response:
         }), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("/connect", methods=["POST"])
 @require_auth
@@ -64,7 +64,7 @@ def connect_whatsapp() -> Response:
         return evolution_error_response(e)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("/disconnect", methods=["POST"])
 @require_auth
@@ -87,7 +87,7 @@ def disconnect_whatsapp() -> Response:
         return evolution_error_response(e)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("", methods=["DELETE"])
 @require_auth
@@ -107,7 +107,7 @@ def delete_whatsapp() -> Response:
         return evolution_error_response(e)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("/groups/sync", methods=["POST"])
 @require_auth
@@ -135,7 +135,7 @@ def sync_groups() -> Response:
         return evolution_error_response(e)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("/groups", methods=["GET"])
 @require_auth
@@ -152,7 +152,7 @@ def list_groups() -> Response:
         return jsonify({"groups": groups}), 200
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
 
 @whatsapp_bp.route("/groups/<uuid:group_id>", methods=["PATCH"])
 @require_auth
@@ -180,4 +180,4 @@ def update_group(group_id: UUID) -> Response:
         return create_error_response(format_validation_error(e), 400)
 
     except Exception:
-        return create_error_response("An error occurred while processing the request", 500)
+        return create_internal_error_response()
