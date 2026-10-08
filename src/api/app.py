@@ -11,6 +11,7 @@ from flask import Flask, request, jsonify, Response, g
 from datetime import datetime, timezone, timedelta
 # from flask_cors import CORS
 import secrets
+import math
 
 class Server:
     def __init__(self) -> None:
@@ -168,6 +169,9 @@ class Server:
                     "password": password
                 })
 
+                if response.user is None or response.session is None:
+                    return self.create_error_response("Invalid email or password", 401)
+
                 profile = (
                     self.supabase
                     .table("profiles")
@@ -250,15 +254,14 @@ class Server:
                     .execute()
                 )
 
-                if profile.data is None:
-                    return self.create_error_response('No account found with this email', 400)
+                generic_response = jsonify({"message": "If an account exists for this email, a recovery code has been sent"}), 200
+
+                if profile is None or profile.data is None:
+                    return generic_response
 
                 user_id = profile.data["id"]
 
                 key = f"password_reset:{user_id}"
-                
-                # if self.redis.exists(key):
-                #     return jsonify({"message": "A recovery code has already been sent."}), 200
 
                 code = self.generate_code()
 
@@ -266,7 +269,7 @@ class Server:
 
                 SendEmailVerification().send_verification_email(email, code, 'reset_password')
 
-                return jsonify({"message": "Recovery code sent successfully"}), 200
+                return generic_response
 
             except Exception:
                 return self.create_error_response('An error occurred while processing the request', 500)
@@ -306,8 +309,8 @@ class Server:
                     .execute()
                 )
 
-                if profile.data is None:
-                    return self.create_error_response('No account found with this email', 400)
+                if profile is None or profile.data is None:
+                    return self.create_error_response("Invalid or expired recovery code", 400)
 
                 user_id = profile.data["id"]
 
@@ -315,7 +318,7 @@ class Server:
 
                 saved_code = self.redis.get(key)
 
-                if saved_code is None or saved_code != code:
+                if saved_code is None or not secrets.compare_digest(saved_code, code):
                     return self.create_error_response("Invalid or expired recovery code", 400)
 
                 self.supabase_admin.auth.admin.update_user_by_id(

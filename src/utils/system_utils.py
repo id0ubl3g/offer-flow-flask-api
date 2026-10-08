@@ -15,7 +15,7 @@ def user_or_ip():
     if hasattr(g, "user") and g.user:
         return str(g.user["id"])
     
-    return get_remote_address
+    return get_remote_address()
 
 def validate_user_data(data: dict) -> str | None:
     validators = {

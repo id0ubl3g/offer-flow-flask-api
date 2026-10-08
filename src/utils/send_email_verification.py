@@ -16,6 +16,8 @@ class SendEmailVerification:
             case 'reset_password':
                 subject = "Password reset"
                 text = f"{verification_code_or_link}"
+            case _:
+                raise ValueError(f"Unsupported email type: {type_email}")
 
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
