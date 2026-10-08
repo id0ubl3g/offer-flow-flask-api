@@ -18,3 +18,15 @@ def register_error_handlers(app: Flask) -> None:
             return response
 
         return create_error_response("Too many requests. Please try again later.", 429)
+
+    @app.errorhandler(404)
+    def not_found(e) -> tuple[Response, int]:
+        return create_error_response("Resource not found.", 404)
+
+    @app.errorhandler(405)
+    def method_not_allowed(e) -> tuple[Response, int]:
+        return create_error_response("Method not allowed.", 405)
+
+    @app.errorhandler(413)
+    def payload_too_large(e) -> tuple[Response, int]:
+        return create_error_response("Request payload is too large.", 413)

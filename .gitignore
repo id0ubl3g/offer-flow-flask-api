@@ -29,3 +29,6 @@ tests/
 
 # Json files
 *.json
+supabase/.temp/
+supabase/.branches/
+supabase/.env
