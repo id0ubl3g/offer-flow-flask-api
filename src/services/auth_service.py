@@ -1,4 +1,6 @@
-from src.extensions import get_supabase, get_supabase_admin, get_redis
+from config.providers.initialize_supabase import initialize_supabase
+
+from src.extensions import get_supabase_admin, get_redis
 
 import secrets
 
@@ -10,7 +12,7 @@ def generate_code() -> str:
 
 def find_profile_id_by_email(email: str) -> str | None:
     profile = (
-        get_supabase()
+        get_supabase_admin()
         .table("profiles")
         .select("id")
         .eq("email", email)
@@ -25,7 +27,7 @@ def find_profile_id_by_email(email: str) -> str | None:
 
 def get_profile(user_id: str) -> dict | None:
     profile = (
-        get_supabase()
+        get_supabase_admin()
         .table("profiles")
         .select("*")
         .eq("id", user_id)
@@ -39,7 +41,7 @@ def get_profile(user_id: str) -> dict | None:
     return profile.data
 
 def register_user(name: str, email: str, password: str) -> dict | None:
-    response = get_supabase().auth.sign_up({
+    response = initialize_supabase().auth.sign_up({
         "email": email,
         "password": password
     })
@@ -47,7 +49,7 @@ def register_user(name: str, email: str, password: str) -> dict | None:
     if response.user is None:
         return None
 
-    get_supabase().table("profiles").insert({
+    get_supabase_admin().table("profiles").insert({
         "id": response.user.id,
         "name": name,
         "email": email
@@ -60,7 +62,7 @@ def register_user(name: str, email: str, password: str) -> dict | None:
     }
 
 def login_user(email: str, password: str) -> dict | None:
-    response = get_supabase().auth.sign_in_with_password({
+    response = initialize_supabase().auth.sign_in_with_password({
         "email": email,
         "password": password
     })
@@ -76,7 +78,7 @@ def login_user(email: str, password: str) -> dict | None:
     }
 
 def refresh_session(refresh_token: str) -> dict | None:
-    response = get_supabase().auth.refresh_session(refresh_token)
+    response = initialize_supabase().auth.refresh_session(refresh_token)
 
     if response.session is None:
         return None

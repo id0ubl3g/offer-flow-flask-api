@@ -1,4 +1,5 @@
-from src.extensions import get_supabase
+from config.providers.initialize_supabase import initialize_supabase
+
 from src.services.auth_service import get_profile
 
 from supabase_auth.errors import AuthApiError
@@ -21,7 +22,8 @@ def require_auth(f: Callable) -> Callable:
         g.access_token = access_token
 
         try:
-            response = get_supabase().auth.get_user(access_token)
+            supabase = initialize_supabase(access_token)
+            response = supabase.auth.get_user(access_token)
 
             if response.user is None:
                 return jsonify({"error": "Invalid access token."}), 401
@@ -31,6 +33,7 @@ def require_auth(f: Callable) -> Callable:
             if not profile:
                 return jsonify({"error": "Profile not found."}), 404
 
+            g.supabase = supabase
             g.user = {
                 **profile,
                 "email": response.user.email
