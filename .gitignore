@@ -29,6 +29,11 @@ tests/
 
 # Json files
 *.json
+
+# Supabase
 supabase/.temp/
 supabase/.branches/
 supabase/.env
+
+# Frontend
+frontend/
