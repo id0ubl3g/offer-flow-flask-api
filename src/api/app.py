@@ -3,6 +3,8 @@ from src.api.errors import register_error_handlers
 from src.api.routes.auth import auth_bp
 from src.api.routes.profile import profile_bp
 from src.api.routes.offers import offers_bp
+from src.api.routes.whatsapp import whatsapp_bp
+from src.api.routes.webhooks import webhooks_bp
 
 from flask import Flask
 
@@ -16,5 +18,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(offers_bp)
+    app.register_blueprint(whatsapp_bp)
+    app.register_blueprint(webhooks_bp)
 
     return app

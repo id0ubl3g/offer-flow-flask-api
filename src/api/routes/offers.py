@@ -1,7 +1,9 @@
 from src.extensions import limiter
 from src.middlewares.auth import require_auth
 from src.schemas.offer_schema import OfferCreate, OfferUpdate, format_validation_error
-from src.services import offer_service
+from src.schemas.whatsapp_schema import TestSend
+from src.services import offer_service, whatsapp_service
+from src.services.evolution_client import EvolutionError
 from src.utils.return_responses import create_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
@@ -202,6 +204,49 @@ def delete_offer_image(offer_id: UUID) -> Response:
             "message": "Image removed successfully.",
             "offer": offer_service.serialize_offer(updated)
         }), 200
+
+    except Exception:
+        return create_error_response("An error occurred while processing the request", 500)
+
+@offers_bp.route("/<uuid:offer_id>/test-send", methods=["POST"])
+@require_auth
+@limiter.limit("5 per minute")
+def test_send_offer(offer_id: UUID) -> Response:
+    try:
+        payload = TestSend.model_validate(request.get_json(silent=True) or {})
+
+        offer = offer_service.get_offer(str(offer_id))
+
+        if offer is None:
+            return create_error_response("Offer not found", 404)
+
+        instance = whatsapp_service.get_instance(g.user["id"])
+
+        if instance is None or instance["status"] != "open":
+            return create_error_response("WhatsApp must be connected to send offers", 409)
+
+        group = whatsapp_service.get_group(g.user["id"], str(payload.group_id))
+
+        if group is None:
+            return create_error_response("Group not found", 404)
+
+        if not group["can_send"]:
+            return create_error_response("Only admins can send messages to this group", 400)
+
+        whatsapp_service.send_offer(
+            instance,
+            group,
+            offer_service.render_message(offer),
+            offer_service.get_image_url(offer.get("image_path"))
+        )
+
+        return jsonify({"message": f"Offer sent to {group['name']}."}), 200
+
+    except ValidationError as e:
+        return create_error_response(format_validation_error(e), 400)
+
+    except EvolutionError as e:
+        return create_error_response(f"WhatsApp service error: {e.message}", 504 if e.status_code == 504 else 502)
 
     except Exception:
         return create_error_response("An error occurred while processing the request", 500)
