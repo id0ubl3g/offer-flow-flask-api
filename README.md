@@ -106,12 +106,13 @@ The Offer Flow Flask API is a multi-tenant backend developed with Flask that let
   │   └── extensions.py
   ├── supabase/
   │   └── migrations/
+  ├── .dockerignore
   ├── .env.example
   ├── .gitignore
   ├── docker-compose.yml
   ├── LICENSE
+  ├── Dockerfile
   ├── Makefile
-  ├── Procfile
   ├── README.md
   ├── requirements.txt
   ├── run.py
@@ -194,17 +195,15 @@ cd offer-flow-flask-api
 make run
 ```
 
-The `make run` command creates the virtual environment, installs dependencies, frees the API port, starts Docker services (Redis, Postgres and Evolution API), launches the Flask API with Gunicorn on `http://localhost:5000` and runs the Dispatch Worker, both managed by Honcho from the `Procfile`.
+The `make run` command builds the API image and starts every service in Docker: Redis, Postgres, Evolution API, the Flask API (Gunicorn) on `http://localhost:5000` and the Dispatch Worker. Containers restart automatically, so the same command runs the project on a VM.
 
 | Command | Description |
 | ------- | ----------- |
-| `make run` | Install, start Docker, API and worker with Honcho |
-| `make dev` | Install, start Docker, API and worker in the background |
-| `make stop` | Stop the API and the worker |
-| `make api` | Restart only the API |
-| `make worker` | Restart only the worker |
-| `make docker-up` | Start Redis, Postgres and Evolution API |
-| `make docker-down` | Stop the containers |
+| `make run` | Build and start all containers |
+| `make stop` | Stop all containers |
+| `make restart` | Rebuild and restart only the API and the worker |
+| `make logs` | Follow the API and worker logs |
+| `make install` | Create the local virtual environment for the scripts |
 | `make migrate` | Apply the Supabase migrations |
 
 To connect a WhatsApp number from the terminal, run:
