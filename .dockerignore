@@ -3,6 +3,7 @@
 .venv
 .env
 .env.*
+Caddyfile
 __pycache__
 frontend
 supabase
