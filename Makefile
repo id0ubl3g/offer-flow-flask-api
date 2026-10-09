@@ -2,7 +2,7 @@ PORT=5000
 REDIS_PORT=6379
 PYTHON=. .venv/bin/activate && dotenv run --override --
 
-.PHONY: install kill-server kill-worker kill-redis api worker docker-up docker-down migrate run stop
+.PHONY: install kill-server kill-worker kill-redis api worker docker-up docker-down migrate dev run-prod run stop
 
 install:
 	@test -d .venv || python3 -m venv .venv
@@ -49,8 +49,13 @@ docker-down:
 migrate:
 	npx --yes supabase db push
 
-run: install kill-server kill-worker kill-redis docker-up
-	$(PYTHON) python3 run.py &
+dev: install kill-server kill-worker kill-redis docker-up
+	$(PYTHON) gunicorn --bind 0.0.0.0:$(PORT) run:app &
 	$(PYTHON) python3 worker.py &
+
+run-prod: install kill-server kill-worker kill-redis docker-up
+	. .venv/bin/activate && honcho start
+
+run: run-prod
 
 stop: kill-server kill-worker
