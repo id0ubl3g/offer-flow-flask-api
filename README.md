@@ -111,6 +111,7 @@ The Offer Flow Flask API is a multi-tenant backend developed with Flask that let
   ├── .gitignore
   ├── docker-compose.yml
   ├── LICENSE
+  ├── Caddyfile
   ├── Dockerfile
   ├── Makefile
   ├── README.md
@@ -168,6 +169,8 @@ Configure the required environment variables in `.env`:
 | `EVOLUTION_POSTGRES_PASSWORD` | Password for the Evolution Postgres container |
 | `EVOLUTION_WEBHOOK_SECRET` | Secret used to sign the per-instance webhook header |
 | `APP_WEBHOOK_BASE_URL` | URL the Evolution container uses to reach the API, `http://host.docker.internal:5000` by default |
+| `API_DOMAIN` | Public domain served over HTTPS by Caddy, without `https://`. Leave empty to use `localhost` |
+| `CORS_ORIGINS` | Comma-separated origins allowed to call the API, `*` allows any origin |
 
 Generate the secrets with:
 
@@ -195,7 +198,9 @@ cd offer-flow-flask-api
 make run
 ```
 
-The `make run` command builds the API image and starts every service in Docker: Redis, Postgres, Evolution API, the Flask API (Gunicorn) on `http://localhost:5000` and the Dispatch Worker. Containers restart automatically, so the same command runs the project on a VM.
+The `make run` command builds the API image and starts every service in Docker: Redis, Postgres, Evolution API, the Flask API (Gunicorn) on `http://localhost:5000`, the Dispatch Worker and Caddy. Containers restart automatically, so the same command runs the project on a VM.
+
+Caddy serves the API over HTTPS on ports 80 and 443 and issues the certificate for `API_DOMAIN` automatically. On a VM, point the domain to the server IP, set `API_DOMAIN` and run `make run`.
 
 | Command | Description |
 | ------- | ----------- |
