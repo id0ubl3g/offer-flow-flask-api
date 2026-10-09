@@ -97,19 +97,31 @@ def sent_today(user_id: str, timezone_name: str) -> int:
 
     return response.count or 0
 
-def _next_queued_offer(user_id: str) -> dict | None:
-    response = (
+def _queued_offers(user_id: str) -> list[dict]:
+    return (
         get_supabase_admin()
         .table("offers")
         .select("*")
         .eq("user_id", user_id)
         .eq("status", "queued")
         .order("queued_at")
-        .limit(1)
         .execute()
+        .data
     )
 
-    return response.data[0] if response.data else None
+def groups_for_offer(offer: dict, groups: list[dict]) -> list[dict]:
+    offer_tags = set(offer.get("tags") or [])
+
+    return [group for group in groups if not group.get("tags") or offer_tags & set(group["tags"])]
+
+def _next_offer_with_groups(user_id: str, groups: list[dict]) -> tuple[dict | None, list[dict]]:
+    for offer in _queued_offers(user_id):
+        matched = groups_for_offer(offer, groups)
+
+        if matched:
+            return offer, matched
+
+    return None, []
 
 def _active_groups(user_id: str) -> list[dict]:
     return (
@@ -165,16 +177,16 @@ def process_run(run: dict, schedule: dict, wait: Callable[[float], bool]) -> str
         _finish_run(run["id"], "skipped", "Daily limit reached")
         return "skipped"
 
-    offer = _next_queued_offer(user_id)
-
-    if offer is None:
-        _finish_run(run["id"], "skipped", "Queue is empty")
-        return "skipped"
-
     groups = _active_groups(user_id)
 
     if not groups:
         _finish_run(run["id"], "skipped", "No active groups")
+        return "skipped"
+
+    offer, groups = _next_offer_with_groups(user_id, groups)
+
+    if offer is None:
+        _finish_run(run["id"], "skipped", "No queued offer matches the active groups")
         return "skipped"
 
     admin.table("dispatch_runs").update({"offer_id": offer["id"], "offer_name": offer["product_name"]}).eq("id", run["id"]).execute()
