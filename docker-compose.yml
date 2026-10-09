@@ -75,6 +75,40 @@ services:
     volumes:
       - evolution_instances:/evolution/instances
 
+  api:
+    build: .
+    image: offer-flow-api
+    container_name: offer_flow_api
+    restart: unless-stopped
+    env_file: .env
+    environment: &app_environment
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      EVOLUTION_API_URL: http://evolution-api:8080
+      APP_WEBHOOK_BASE_URL: http://api:5000
+    depends_on:
+      redis:
+        condition: service_healthy
+      evolution-api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: offer-flow-api
+    container_name: offer_flow_worker
+    restart: unless-stopped
+    command: ["python", "worker.py"]
+    env_file: .env
+    environment: *app_environment
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   redis_data:
   evolution_postgres_data:

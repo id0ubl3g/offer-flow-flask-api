@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.env
+.env.*
+__pycache__
+frontend
+supabase
+scripts
+docker-compose.yml
+Dockerfile
+Makefile
+*.md
+LICENSE
