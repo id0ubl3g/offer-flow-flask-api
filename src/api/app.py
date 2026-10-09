@@ -10,10 +10,12 @@ from src.api.routes.dispatches import dispatches_bp
 from src.api.routes.health import health_bp
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 6 * 1024 * 1024
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     init_extensions(app)
     register_error_handlers(app)
