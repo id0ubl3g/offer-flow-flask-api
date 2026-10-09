@@ -8,8 +8,10 @@ from src.services.evolution_client import EvolutionClient
 from src.utils.system_utils import user_or_ip
 
 from flask import Flask, current_app, g
+from flask_cors import CORS
 from supabase import Client
 from redis import Redis
+import os
 
 limiter = initialize_limiter(user_or_ip)
 
@@ -19,6 +21,8 @@ def init_extensions(app: Flask) -> None:
     app.extensions["evolution"] = initialize_evolution()
 
     limiter.init_app(app)
+
+    CORS(app, origins=os.getenv("CORS_ORIGINS", "*").split(","))
 
 def get_supabase_admin() -> Client:
     return current_app.extensions["supabase_admin"]
