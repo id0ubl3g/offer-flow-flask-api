@@ -3,13 +3,13 @@
 <!-- markdownlint-disable MD033 -->
 
 <div align="center">
-  <img src=".github/abacus.png" alt="Abacus Logo" width="130">
+  <img src=".github/abacus-logo.png" alt="Abacus Logo" width="130">
   <h1><b>Offer Flow Flask API</b></h1>
   <p>Flask API to register product offers and dispatch them to WhatsApp groups on a schedule.</p>
   <p>
-    <img src="https://img.shields.io/github/last-commit/id0ubl3g/offer-flow-flask-api?style=flat&logo=git&logoColor=white&color=7c5cfc" alt="Last Commit">
-    <img src="https://img.shields.io/github/languages/top/id0ubl3g/offer-flow-flask-api?style=flat&color=7c5cfc" alt="Top Language">
-    <img src="https://img.shields.io/github/languages/count/id0ubl3g/offer-flow-flask-api?style=flat&color=7c5cfc" alt="Languages Count">
+    <img src="https://img.shields.io/github/last-commit/id0ubl3g/offer-flow-flask-api?style=flat&logo=git&logoColor=white&color=0080ff" alt="Last Commit">
+    <img src="https://img.shields.io/github/languages/top/id0ubl3g/offer-flow-flask-api?style=flat&color=0080ff" alt="Top Language">
+    <img src="https://img.shields.io/github/languages/count/id0ubl3g/offer-flow-flask-api?style=flat&color=0080ff" alt="Languages Count">
   </p>
 </div>
 
