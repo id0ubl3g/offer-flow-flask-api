@@ -77,6 +77,7 @@ The Offer Flow Flask API is a multi-tenant backend developed with Flask that let
   │   │   └── routes/
   │   │       ├── auth.py
   │   │       ├── dispatches.py
+  │   │       ├── health.py
   │   │       ├── offers.py
   │   │       ├── profile.py
   │   │       ├── schedules.py
@@ -110,6 +111,7 @@ The Offer Flow Flask API is a multi-tenant backend developed with Flask that let
   ├── docker-compose.yml
   ├── LICENSE
   ├── Makefile
+  ├── Procfile
   ├── README.md
   ├── requirements.txt
   ├── run.py
@@ -192,11 +194,12 @@ cd offer-flow-flask-api
 make run
 ```
 
-The `make run` command creates the virtual environment, installs dependencies, frees the API port, starts Docker services (Redis, Postgres and Evolution API), launches the Flask API on `http://localhost:5000` and runs the Dispatch Worker.
+The `make run` command creates the virtual environment, installs dependencies, frees the API port, starts Docker services (Redis, Postgres and Evolution API), launches the Flask API with Gunicorn on `http://localhost:5000` and runs the Dispatch Worker, both managed by Honcho from the `Procfile`.
 
 | Command | Description |
 | ------- | ----------- |
-| `make run` | Install, start Docker, API and worker |
+| `make run` | Install, start Docker, API and worker with Honcho |
+| `make dev` | Install, start Docker, API and worker in the background |
 | `make stop` | Stop the API and the worker |
 | `make api` | Restart only the API |
 | `make worker` | Restart only the worker |
@@ -216,6 +219,7 @@ To connect a WhatsApp number from the terminal, run:
 
 | Method   | Endpoint                               | Description                                                  |
 | -------- | -------------------------------------- | ------------------------------------------------------------ |
+| `GET`    | `/health`                              | Returns the API health status.                               |
 | `POST`   | `/auth/register`                       | Registers a new user.                                        |
 | `POST`   | `/auth/login`                          | Logs in and returns access and refresh tokens.               |
 | `POST`   | `/auth/refresh`                        | Refreshes the session using the refresh token.               |
@@ -254,7 +258,7 @@ To connect a WhatsApp number from the terminal, run:
 | `POST`   | `/dispatches/<dispatch_id>/retry`      | Retries a failed or skipped send.                            |
 | `POST`   | `/webhooks/evolution`                  | Evolution API webhook for QR code and connection (internal). |
 
-All endpoints except `/auth/*` and `/webhooks/evolution` require a JWT Bearer token in the `Authorization` header.
+All endpoints except `/auth/*`, `/webhooks/evolution` and `/health` require a JWT Bearer token in the `Authorization` header.
 
 ### Core Endpoints
 
