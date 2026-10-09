@@ -7,6 +7,7 @@ from src.api.routes.whatsapp import whatsapp_bp
 from src.api.routes.webhooks import webhooks_bp
 from src.api.routes.schedules import schedules_bp
 from src.api.routes.dispatches import dispatches_bp
+from src.api.routes.health import health_bp
 
 from flask import Flask
 
@@ -24,5 +25,6 @@ def create_app() -> Flask:
     app.register_blueprint(webhooks_bp)
     app.register_blueprint(schedules_bp)
     app.register_blueprint(dispatches_bp)
+    app.register_blueprint(health_bp)
 
     return app
