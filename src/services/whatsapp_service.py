@@ -211,7 +211,7 @@ def list_groups(user_id: str, active: bool | None = None) -> list[dict]:
     query = (
         get_supabase_admin()
         .table("groups")
-        .select("id, jid, name, participants_count, is_announce, is_admin, can_send, active, removed_at, synced_at")
+        .select("id, jid, name, participants_count, is_announce, is_admin, can_send, active, tags, removed_at, synced_at")
         .eq("user_id", user_id)
         .is_("removed_at", "null")
         .order("name")
@@ -236,11 +236,11 @@ def get_group(user_id: str, group_id: str) -> dict | None:
 
     return response.data if response else None
 
-def set_group_active(group_id: str, active: bool) -> dict:
+def update_group(group_id: str, data: dict) -> dict:
     response = (
         get_supabase_admin()
         .table("groups")
-        .update({"active": active})
+        .update(data)
         .eq("id", group_id)
         .execute()
     )

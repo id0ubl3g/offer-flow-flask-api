@@ -21,6 +21,7 @@ OFFER_STATUSES = ("draft", "queued", "sent", "archived")
 def list_offers() -> Response:
     try:
         status = request.args.get("status")
+        tag = request.args.get("tag", "").strip().lower() or None
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
 
@@ -30,7 +31,7 @@ def list_offers() -> Response:
         if page < 1 or not 1 <= per_page <= 100:
             return create_error_response("page must be >= 1 and per_page between 1 and 100", 400)
 
-        offers, total = offer_service.list_offers(status, page, per_page)
+        offers, total = offer_service.list_offers(status, tag, page, per_page)
 
         return jsonify({
             "offers": [offer_service.serialize_offer(offer) for offer in offers],

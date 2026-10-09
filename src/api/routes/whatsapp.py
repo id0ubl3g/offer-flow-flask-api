@@ -160,20 +160,24 @@ def list_groups() -> Response:
 def update_group(group_id: UUID) -> Response:
     try:
         payload = GroupUpdate.model_validate(request.get_json(silent=True) or {})
+        data = payload.model_dump(exclude_unset=True)
+
+        if not data:
+            return create_error_response("No fields to update", 400)
 
         group = whatsapp_service.get_group(g.user["id"], str(group_id))
 
         if group is None:
             return create_error_response("Group not found", 404)
 
-        if payload.active and not group["can_send"]:
+        if data.get("active") and not group["can_send"]:
             return create_error_response("Only admins can send messages to this group", 400)
 
-        group = whatsapp_service.set_group_active(group["id"], payload.active)
+        group = whatsapp_service.update_group(group["id"], data)
 
         return jsonify({
             "message": "Group updated successfully.",
-            "group": {key: group[key] for key in ("id", "jid", "name", "can_send", "active")}
+            "group": {key: group[key] for key in ("id", "jid", "name", "can_send", "active", "tags")}
         }), 200
 
     except ValidationError as e:

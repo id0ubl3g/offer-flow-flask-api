@@ -51,7 +51,7 @@ def render_message(offer: dict) -> str:
 
     return PLACEHOLDER_PATTERN.sub(lambda match: values.get(match.group(1), match.group(0)), template)
 
-def list_offers(status: str | None, page: int, per_page: int) -> tuple[list[dict], int]:
+def list_offers(status: str | None, tag: str | None, page: int, per_page: int) -> tuple[list[dict], int]:
     start = (page - 1) * per_page
 
     query = (
@@ -64,6 +64,9 @@ def list_offers(status: str | None, page: int, per_page: int) -> tuple[list[dict
 
     if status:
         query = query.eq("status", status)
+
+    if tag:
+        query = query.contains("tags", [tag])
 
     response = query.execute()
 
