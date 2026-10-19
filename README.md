@@ -37,6 +37,7 @@
   - [Example Use Case](#example-use-case)
     - [From Offer to Scheduled Dispatch](#from-offer-to-scheduled-dispatch)
 - [How Dispatching Works](#how-dispatching-works)
+- [Dispatch Limits](#dispatch-limits)
 - [License](#license)
 
 ## Overview
@@ -53,6 +54,7 @@ The Offer Flow Flask API is a multi-tenant backend developed with Flask that let
 - Group sync with admin detection, so groups where only admins can send are blocked automatically
 - Offer queue and weekly schedules per user, in the user's timezone
 - Background worker with Redis lock, random delays between groups, daily limit and retry
+- Up to 20 active groups per user and at least 1 hour between schedules
 - Dispatch history per group with manual retry of failed sends
 - Row Level Security on every table, rate limiting and temporary blocking after repeated violations
 
@@ -248,7 +250,7 @@ To connect a WhatsApp number from the terminal, run:
 | `POST`   | `/whatsapp/disconnect`                 | Logs the number out.                                         |
 | `DELETE` | `/whatsapp`                            | Deletes the instance and its groups.                         |
 | `POST`   | `/whatsapp/groups/sync`                | Syncs the groups of the connected number.                    |
-| `GET`    | `/whatsapp/groups`                     | Lists groups, optionally filtered by `active`.               |
+| `GET`    | `/whatsapp/groups`                     | Lists groups and the active count, filtered by `active`.     |
 | `PATCH`  | `/whatsapp/groups/<group_id>`          | Activates or deactivates a group for dispatches.             |
 | `GET`    | `/schedules`                           | Lists dispatch times.                                        |
 | `POST`   | `/schedules`                           | Creates a dispatch time.                                     |
@@ -344,7 +346,7 @@ curl -X POST "http://127.0.0.1:5000/whatsapp/connect" \
 
 - **URL**: `/whatsapp/groups/<group_id>`
 - **Method**: `PATCH`
-- **Description**: Activates or deactivates a group for scheduled dispatches. Groups where only admins can send and the number is not an admin cannot be activated.
+- **Description**: Activates or deactivates a group for scheduled dispatches. Groups where only admins can send and the number is not an admin cannot be activated. Each user can have at most 20 active groups, and activating a 21st returns `409`.
 - **Security**: Requires JWT Bearer token in Authorization header.
 
 ##### Request Body Update Group:
@@ -368,7 +370,7 @@ curl -X PATCH "http://127.0.0.1:5000/whatsapp/groups/{group_id}" \
 
 - **URL**: `/schedules`
 - **Method**: `POST`
-- **Description**: Creates a dispatch time. At each time the worker sends the next queued offer.
+- **Description**: Creates a dispatch time. At each time the worker sends the next queued offer. Times must be at least 1 hour apart from every other schedule of the user, regardless of the days of the week and across midnight, otherwise the API returns `409`.
 - **Security**: Requires JWT Bearer token in Authorization header.
 
 ##### Request Body Create Schedule:
@@ -460,10 +462,23 @@ From ~R$ 299,90~ to *R$ 179,90*
 
 1. Every 30 seconds the worker looks for active schedules whose time has arrived, in each schedule's timezone. Times missed by up to 10 minutes, for example while the worker was restarting, are still executed.
 2. Each schedule runs at most once per time slot, guaranteed by a unique constraint in the database, and a Redis lock keeps a single worker active.
-3. The run takes the oldest queued offer and sends it to every active group, one at a time, waiting a random delay between `min_delay_seconds` and `max_delay_seconds`.
+3. The run takes the oldest queued offer and sends it to every active group, up to 20, one at a time, waiting a random delay between `min_delay_seconds` and `max_delay_seconds`.
 4. Failed sends are retried once. If the number disconnects, the run stops and the remaining groups are marked as failed.
 5. When the daily limit is reached, the remaining groups are skipped until the next day.
 6. The offer becomes `sent` when at least one group receives it. Empty queues and runs without active groups are recorded as `skipped`.
+
+## Dispatch Limits
+
+| Rule | Value | Enforced by |
+|------|-------|-------------|
+| Active groups per user | 20 | API returns `409` on the 21st activation, a database trigger blocks it and the worker sends to at most 20 groups per run |
+| Gap between schedules | 1 hour | API returns `409` on create or update |
+
+- The schedule gap compares every schedule of the user, regardless of the days of the week, and wraps around midnight, so `23:30` and `00:20` conflict.
+- Schedules in different timezones are converted before the comparison.
+- The gap between schedules is not the delay between groups inside a run, which is still controlled by `min_delay_seconds` and `max_delay_seconds`.
+- Users that already had more than 20 active groups or schedules closer than 1 hour keep them, and only new activations and changes are validated.
+- `GET /whatsapp/groups` returns `active_count` and `active_limit` so clients can show the usage.
 
 ## License
 
