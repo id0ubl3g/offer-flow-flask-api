@@ -11,6 +11,9 @@ from uuid import UUID
 
 schedules_bp = Blueprint("schedules", __name__)
 
+def schedule_conflict_response(conflict: dict) -> tuple[Response, int]:
+    return create_error_response(f"Schedules must be at least {schedule_service.MIN_SCHEDULE_GAP_MINUTES} minutes apart. Conflicts with {conflict['send_time']}", 409)
+
 @schedules_bp.route("/schedules", methods=["GET"])
 @require_auth
 @limiter.limit("60 per minute")
@@ -28,8 +31,10 @@ def create_schedule() -> Response:
     try:
         payload = ScheduleCreate.model_validate(request.get_json(silent=True) or {})
 
-        if schedule_service.find_schedule_by_time(payload.send_time):
-            return create_error_response("A schedule already exists at this time", 409)
+        conflict = schedule_service.find_conflicting_schedule(payload.send_time, payload.timezone)
+
+        if conflict:
+            return schedule_conflict_response(conflict)
 
         schedule = schedule_service.create_schedule(g.user["id"], payload.model_dump())
 
@@ -55,14 +60,20 @@ def update_schedule(schedule_id: UUID) -> Response:
         if not data:
             return create_error_response("No fields to update", 400)
 
-        if schedule_service.get_schedule(str(schedule_id)) is None:
+        schedule = schedule_service.get_schedule(str(schedule_id))
+
+        if schedule is None:
             return create_error_response("Schedule not found", 404)
 
-        if "send_time" in data:
-            existing = schedule_service.find_schedule_by_time(data["send_time"])
+        if "send_time" in data or "timezone" in data:
+            conflict = schedule_service.find_conflicting_schedule(
+                data.get("send_time", schedule["send_time"]),
+                data.get("timezone", schedule["timezone"]),
+                schedule["id"]
+            )
 
-            if existing and existing["id"] != str(schedule_id):
-                return create_error_response("A schedule already exists at this time", 409)
+            if conflict:
+                return schedule_conflict_response(conflict)
 
         schedule = schedule_service.update_schedule(str(schedule_id), data)
 
