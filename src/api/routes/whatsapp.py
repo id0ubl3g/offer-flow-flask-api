@@ -7,6 +7,7 @@ from src.services.evolution_client import EvolutionError
 from src.utils.return_responses import create_error_response, create_internal_error_response
 
 from flask import Blueprint, request, jsonify, Response, g
+from postgrest.exceptions import APIError
 from pydantic import ValidationError
 from uuid import UUID
 
@@ -149,7 +150,11 @@ def list_groups() -> Response:
 
         groups = whatsapp_service.list_groups(g.user["id"], None if active is None else active == "true")
 
-        return jsonify({"groups": groups}), 200
+        return jsonify({
+            "groups": groups,
+            "active_count": whatsapp_service.count_active_groups(g.user["id"]),
+            "active_limit": whatsapp_service.MAX_ACTIVE_GROUPS
+        }), 200
 
     except Exception:
         return create_internal_error_response()
@@ -173,7 +178,17 @@ def update_group(group_id: UUID) -> Response:
         if data.get("active") and not group["can_send"]:
             return create_error_response("Only admins can send messages to this group", 400)
 
-        group = whatsapp_service.update_group(group["id"], data)
+        if data.get("active") and not group["active"] and whatsapp_service.count_active_groups(g.user["id"]) >= whatsapp_service.MAX_ACTIVE_GROUPS:
+            return create_error_response(f"Active groups limit reached ({whatsapp_service.MAX_ACTIVE_GROUPS})", 409)
+
+        try:
+            group = whatsapp_service.update_group(group["id"], data)
+
+        except APIError as e:
+            if e.code != "OF001":
+                raise
+
+            return create_error_response(f"Active groups limit reached ({whatsapp_service.MAX_ACTIVE_GROUPS})", 409)
 
         return jsonify({
             "message": "Group updated successfully.",

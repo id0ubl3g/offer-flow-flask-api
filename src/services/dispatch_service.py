@@ -133,6 +133,7 @@ def _active_groups(user_id: str) -> list[dict]:
         .eq("can_send", True)
         .is_("removed_at", "null")
         .order("name")
+        .limit(whatsapp_service.MAX_ACTIVE_GROUPS)
         .execute()
         .data
     )

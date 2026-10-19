@@ -10,6 +10,7 @@ import os
 load_dotenv()
 
 QRCODE_TTL = 60
+MAX_ACTIVE_GROUPS = 20
 INSTANCE_STATUSES = ("connecting", "open", "close")
 IMAGE_MIMETYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 
@@ -221,6 +222,20 @@ def list_groups(user_id: str, active: bool | None = None) -> list[dict]:
         query = query.eq("active", active)
 
     return query.execute().data
+
+def count_active_groups(user_id: str) -> int:
+    response = (
+        get_supabase_admin()
+        .table("groups")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .eq("active", True)
+        .is_("removed_at", "null")
+        .limit(1)
+        .execute()
+    )
+
+    return response.count or 0
 
 def get_group(user_id: str, group_id: str) -> dict | None:
     response = (
